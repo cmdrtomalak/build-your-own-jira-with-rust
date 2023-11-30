@@ -34,7 +34,19 @@ use std::fmt::Formatter;
 pub enum Command {
     /// Create a ticket on your board.
     Create {
-        __
+         /// Id of the ticket
+        #[structopt(long)]
+        id: TicketId,
+        /// Status of the ticket.
+        #[structopt(long)]
+        status: Option<Status>,
+        /// Description of the ticket.
+        #[structopt(long)]
+        description: Option<TicketDescription>,
+        /// Title for your ticket.
+        #[structopt(long)]
+        title: Option<TicketTitle>,
+       
     },
     /// Edit the details of an existing ticket.
     Edit {
@@ -53,7 +65,9 @@ pub enum Command {
     },
     /// Delete a ticket from the store passing the ticket id.
     Delete {
-        __
+         /// Id of the ticket you want to delete.
+        #[structopt(long)]
+        id: TicketId,
     },
     /// List all existing tickets.
     List,
