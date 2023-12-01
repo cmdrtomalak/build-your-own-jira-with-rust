@@ -23,30 +23,25 @@
 //!
 //! When you are ready, uncomment the appropriate lines from src/main.rs and
 //! run `cargo run --bin jira-wip` in your terminal!
-use super::store_recap::{TicketStore, Status, TicketDraft, TicketPatch, TicketTitle, TicketDescription};
 use super::id_generation::TicketId;
+use super::store_recap::{
+    Status, TicketDescription, TicketDraft, TicketPatch, TicketStore, TicketTitle,
+};
 use std::error::Error;
-use std::str::FromStr;
 use std::fmt::Formatter;
+use std::str::FromStr;
 
 #[derive(structopt::StructOpt, Clone)]
 /// A small command-line interface to interact with a toy Jira clone, IronJira.
 pub enum Command {
     /// Create a ticket on your board.
     Create {
-         /// Id of the ticket
-        #[structopt(long)]
-        id: TicketId,
-        /// Status of the ticket.
-        #[structopt(long)]
-        status: Option<Status>,
         /// Description of the ticket.
         #[structopt(long)]
-        description: Option<TicketDescription>,
+        description: TicketDescription,
         /// Title for your ticket.
         #[structopt(long)]
-        title: Option<TicketTitle>,
-       
+        title: TicketTitle,
     },
     /// Edit the details of an existing ticket.
     Edit {
@@ -65,9 +60,9 @@ pub enum Command {
     },
     /// Delete a ticket from the store passing the ticket id.
     Delete {
-         /// Id of the ticket you want to delete.
+        /// Id of the ticket you want to delete.
         #[structopt(long)]
-        id: TicketId,
+        ticket_id: TicketId,
     },
     /// List all existing tickets.
     List,
@@ -82,23 +77,37 @@ impl FromStr for Status {
     type Err = ParsingError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        __
+        match s {
+            "Todo" => Ok(Status::ToDo),
+            "InProgress" => Ok(Status::InProgress),
+            "Blocked" => Ok(Status::Blocked),
+            "Done" => Ok(Status::Done),
+            _ => Err(ParsingError("Cannot convert".to_string())),
+        }
     }
 }
 
 impl FromStr for TicketTitle {
-    __
+    type Err = super::store_recap::ValidationError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        TicketTitle::new(s.to_owned())
+    }
 }
 
 impl FromStr for TicketDescription {
-    __
+    type Err = super::store_recap::ValidationError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        TicketDescription::new(s.to_owned())
+    }
 }
 
 /// Our error struct for parsing failures.
 #[derive(Debug)]
 pub struct ParsingError(String);
 
-impl Error for ParsingError { }
+impl Error for ParsingError {}
 
 impl std::fmt::Display for ParsingError {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
@@ -115,10 +124,14 @@ impl std::fmt::Display for ParsingError {
 /// touching in this workshop.
 /// Check its section in the Rust book if you are curious:
 /// https://doc.rust-lang.org/book/ch17-02-trait-objects.html#using-trait-objects-that-allow-for-values-of-different-types
-pub fn handle_command(ticket_store: &mut TicketStore, command: Command) -> Result<(), Box<dyn Error>> {
+pub fn handle_command(
+    ticket_store: &mut TicketStore,
+    command: Command,
+) -> Result<(), Box<dyn Error>> {
     match command {
         Command::Create { description, title } => {
-            todo!()
+            let ticket = TicketDraft { title, description };
+            let _ticket = ticket_store.save(ticket);
         }
         Command::Edit {
             id,
@@ -126,7 +139,15 @@ pub fn handle_command(ticket_store: &mut TicketStore, command: Command) -> Resul
             description,
             status,
         } => {
-            todo!()
+            let patch = TicketPatch {
+                title,
+                description,
+                status,
+            };
+            let ticket = ticket_store.update(&id, patch);
+            if ticket.is_none() {
+                println!("Unable to update, id not found")
+            }
         }
         Command::Delete { ticket_id } => match ticket_store.delete(&ticket_id) {
             Some(deleted_ticket) => println!(
@@ -139,7 +160,7 @@ pub fn handle_command(ticket_store: &mut TicketStore, command: Command) -> Resul
             ),
         },
         Command::List => {
-            todo!()
+            ticket_store.list();
         }
     }
     Ok(())
@@ -150,8 +171,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn invalid_status_fails_to_be_parsed()
-    {
+    fn invalid_status_fails_to_be_parsed() {
         let invalid_status = "Not a good status";
         assert!(Status::from_str(invalid_status).is_err());
     }
